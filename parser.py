@@ -12,6 +12,7 @@ import os
 import json
 import argparse
 import logging
+import unicodedata
 
 
 # Configure logging to stderr
@@ -90,6 +91,37 @@ def entities_dict_to_espanso_package_dict(entities):
     return {k: v for k, v in entities.items()}
 
 
+def is_printable(char):
+    """
+    Determine if a character is printable.
+    Returns True if the character is considered printable, False otherwise.
+    """
+    # Check if character is in a printable category
+    category = unicodedata.category(char)
+    # Control characters (Cc), Format characters (Cf), Surrogates (Cs), 
+    # Private use (Co), and Unassigned (Cn) are considered non-printable
+    if category in ['Cc', 'Cf', 'Cs', 'Co', 'Cn']:
+        return False
+    # Also check for specific non-printable characters
+    if ord(char) < 32 and char not in '\t\n\r':
+        return False
+    return True
+
+
+def filter_entities_by_class(entities, filter_class):
+    """
+    Filter entities based on the specified class.
+    Returns a dictionary containing only entities matching the filter criteria.
+    """
+    if filter_class == "printable":
+        return {k: v for k, v in entities.items() if all(is_printable(c) for c in v)}
+    elif filter_class == "unprintable":
+        return {k: v for k, v in entities.items() if any(not is_printable(c) for c in v)}
+    else:
+        # No filter or unknown filter - return all entities
+        return entities
+
+
 def prefix_dict_keys(d, prefix):
     """
     Prefix all keys in the dictionary with the given prefix.
@@ -136,6 +168,13 @@ def main():
         default="espanso",
         help="Output format. 'json' is just a JSON list of key/value pairs, while 'espanso' is a valid package.yml file. (Default: %(default)s)",
     )
+    parser.add_argument(
+        "-i",
+        "--filter",
+        choices=["printable", "unprintable"],
+        default=None,
+        help="Filter entities by character class. 'printable' includes only printable Unicode characters, 'unprintable' includes only non-printable characters.",
+    )
     args = parser.parse_args()
 
     if not os.path.exists(args.input_file):
@@ -161,12 +200,17 @@ def main():
     else:
         logger.info(f"Parsed {len(entities)} HTML entities from {args.input_file}")
 
+    # Apply filter if specified
+    if args.filter:
+        entities = filter_entities_by_class(entities, args.filter)
+        logger.info(f"After filtering for {args.filter} characters: {len(entities)} entities")
+
     prefixed = prefix_dict_keys(entities, args.prefix)
 
     formatted = ""
     if args.format == "json":
         formatted = json.dumps(prefixed, indent=2, ensure_ascii=False)
-    elif args.format == "yaml":
+    elif args.format == "espanso":
         formatted = get_espanso_package_yml(prefixed)
     else:
         logger.error(f"Unsupported format: {args.format}")
