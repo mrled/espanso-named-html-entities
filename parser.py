@@ -82,6 +82,18 @@ def parse_html_entities_table(table_html):
     return entities
 
 
+def entities_dict_to_espanso_package_yml(entities):
+    """
+    Convert entities dictionary to espanso package.yml contents with a matches object,
+    which contains a list of dictionaries with 'trigger' and 'replace' keys.
+    """
+    return {
+        "matches": [
+            {"trigger": entity, "replace": glyph} for entity, glyph in entities.items()
+        ]
+    }
+
+
 def prefix_dict_keys(d, prefix):
     """
     Prefix all keys in the dictionary with the given prefix.
@@ -123,7 +135,6 @@ def main():
         sys.exit(1)
 
     entities = parse_html_entities_table(table_html)
-
     if not entities:
         logger.error("No entities found in the table.")
         sys.exit(1)
@@ -132,7 +143,9 @@ def main():
 
     prefixed = prefix_dict_keys(entities, args.prefix)
 
-    json_output = json.dumps(prefixed, ensure_ascii=False, indent=2)
+    espanso_package_yml_contents = entities_dict_to_espanso_package_yml(prefixed)
+
+    json_output = json.dumps(espanso_package_yml_contents, ensure_ascii=False, indent=2)
 
     if args.output:
         try:
