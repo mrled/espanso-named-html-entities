@@ -82,16 +82,12 @@ def parse_html_entities_table(table_html):
     return entities
 
 
-def entities_dict_to_espanso_package_yml(entities):
+def entities_dict_to_espanso_package_dict(entities):
     """
-    Convert entities dictionary to espanso package.yml contents with a matches object,
+    Convert entities dictionary to espanso package.yml contents,
     which contains a list of dictionaries with 'trigger' and 'replace' keys.
     """
-    return {
-        "matches": [
-            {"trigger": entity, "replace": glyph} for entity, glyph in entities.items()
-        ]
-    }
+    return {k: v for k, v in entities.items()}
 
 
 def prefix_dict_keys(d, prefix):
@@ -100,6 +96,17 @@ def prefix_dict_keys(d, prefix):
     Returns a new dictionary with prefixed keys.
     """
     return {f"{prefix}{k}": v for k, v in d.items()}
+
+
+def print_espanso_package_yml(d):
+    """
+    Write the espanso package.yml contents to the specified output file.
+    """
+    output = ["matches:"]
+    for k, v in d.items():
+        output.append(f"- trigger: {k}")
+        output.append(f"  replace: {v}")
+    return "\n".join(output)
 
 
 def main():
@@ -143,21 +150,21 @@ def main():
 
     prefixed = prefix_dict_keys(entities, args.prefix)
 
-    espanso_package_yml_contents = entities_dict_to_espanso_package_yml(prefixed)
+    espanso_package_yml_contents = entities_dict_to_espanso_package_dict(prefixed)
 
-    json_output = json.dumps(espanso_package_yml_contents, ensure_ascii=False, indent=2)
+    yml_output = print_espanso_package_yml(espanso_package_yml_contents)
 
     if args.output:
         try:
             with open(args.output, "w", encoding="utf-8") as f:
-                f.write(json_output)
+                f.write(yml_output)
             logger.info(f"Output written to '{args.output}'")
         except Exception as e:
             logger.error(f"Error writing output file: {e}")
             sys.exit(1)
     else:
         # Write to stdout
-        print(json_output)
+        print(yml_output)
 
 
 if __name__ == "__main__":
