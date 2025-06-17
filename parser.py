@@ -98,34 +98,20 @@ def prefix_dict_keys(d, prefix):
     return {f"{prefix}{k}": v for k, v in d.items()}
 
 
-def maybe_quote(s):
-    """
-    Quote a string for YAML output.
-
-    A few things to keep in mind:
-    - Don't naively quote backslashes, because you'll end up with `"\"` which is invalid
-    - Some complex characters contain things that need escaping, like `>⃒`
-    - Double vs single quotes of course
-    """
-    nquotes = "\\"
-    squotes = '"'
-    dquotes = "'&*:,@`{[>%?"
-    if s in nquotes:
-        return s
-    for c in squotes:
-        if s.startswith(c):
-            return f"'{s}'"
-    return f'"{s}"'
-
-
-def print_espanso_package_yml(d):
+def get_espanso_package_yml(d):
     """
     Write the espanso package.yml contents to the specified output file.
+
+    json.dumps handles escaping for us, including:
+    - Backslashes
+    - Single and double quote characters
+    - Special characters that contain things that need escaping, like `>⃒`
     """
     output = ["matches:"]
     for k, v in d.items():
         output.append(f"- trigger: {k}")
-        output.append(f"  replace: {maybe_quote(v)}")
+        quoted_v = json.dumps(v, ensure_ascii=False)
+        output.append(f"  replace: {quoted_v}")
     return "\n".join(output)
 
 
@@ -142,6 +128,13 @@ def main():
         "--prefix",
         default=":",
         help="Prefix for entity names (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        choices=["json", "espanso"],
+        default="espanso",
+        help="Output format. 'json' is just a JSON list of key/value pairs, while 'espanso' is a valid package.yml file. (Default: %(default)s)",
     )
     args = parser.parse_args()
 
@@ -170,21 +163,26 @@ def main():
 
     prefixed = prefix_dict_keys(entities, args.prefix)
 
-    espanso_package_yml_contents = entities_dict_to_espanso_package_dict(prefixed)
-
-    yml_output = print_espanso_package_yml(espanso_package_yml_contents)
+    formatted = ""
+    if args.format == "json":
+        formatted = json.dumps(prefixed, indent=2, ensure_ascii=False)
+    elif args.format == "yaml":
+        formatted = get_espanso_package_yml(prefixed)
+    else:
+        logger.error(f"Unsupported format: {args.format}")
+        sys.exit(1)
 
     if args.output:
         try:
             with open(args.output, "w", encoding="utf-8") as f:
-                f.write(yml_output)
+                f.write(formatted)
             logger.info(f"Output written to '{args.output}'")
         except Exception as e:
             logger.error(f"Error writing output file: {e}")
             sys.exit(1)
     else:
         # Write to stdout
-        print(yml_output)
+        print(formatted)
 
 
 if __name__ == "__main__":
