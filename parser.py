@@ -98,6 +98,26 @@ def prefix_dict_keys(d, prefix):
     return {f"{prefix}{k}": v for k, v in d.items()}
 
 
+def maybe_quote(s):
+    """
+    Quote a string for YAML output.
+
+    A few things to keep in mind:
+    - Don't naively quote backslashes, because you'll end up with `"\"` which is invalid
+    - Some complex characters contain things that need escaping, like `>⃒`
+    - Double vs single quotes of course
+    """
+    nquotes = "\\"
+    squotes = '"'
+    dquotes = "'&*:,@`{[>%?"
+    if s in nquotes:
+        return s
+    for c in squotes:
+        if s.startswith(c):
+            return f"'{s}'"
+    return f'"{s}"'
+
+
 def print_espanso_package_yml(d):
     """
     Write the espanso package.yml contents to the specified output file.
@@ -105,7 +125,7 @@ def print_espanso_package_yml(d):
     output = ["matches:"]
     for k, v in d.items():
         output.append(f"- trigger: {k}")
-        output.append(f"  replace: {v}")
+        output.append(f"  replace: {maybe_quote(v)}")
     return "\n".join(output)
 
 
