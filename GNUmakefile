@@ -5,8 +5,6 @@ MAKEFLAGS += --warn-undefined-variables
 .SHELLFLAGS := -euc
 
 # Show a nice table of Make targets.
-# Generate it by grepping through the Makefile for targets with a ## after them,
-# and treat everything following ## as the description.
 .PHONY: help
 help: ## Show this help
 	@egrep -h '\s##\s' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -19,9 +17,12 @@ cleandata: ## Remove all data files
 cleandist: ## Remove all distribution files
 	rm -rf dist/
 
-data/named-characters.html: ## Retrieve the named-characters.html file from WHATWG
+data/named-characters.html:
 	mkdir -p data/
 	curl -o data/named-characters.html https://html.spec.whatwg.org/multipage/named-characters.html
+
+.PHONY: data
+data: data/named-characters.html ## Download the named characters HTML file from WHATWG
 
 dist/_manifest.yml: _manifest.yml
 	mkdir -p dist/
@@ -37,3 +38,9 @@ dist/README.md: README.espansopackage.md
 
 .PHONY: dist
 dist: dist/_manifest.yml dist/package.yml dist/README.md ## Create the distribution directory for the package
+	@echo "Distribution files created in dist/"
+
+.PHONY: install
+install: dist ## Build the package and copy it to your Espanso config dir
+	cp dist/package.yml "$$(espanso path config)"/match/named-html-entities.yml
+	@echo "Package installed to Espanso config directory."
